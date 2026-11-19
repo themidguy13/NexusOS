@@ -1,0 +1,35 @@
+name: Build NEXUS OS Bootable ISO
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space on Runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          df -h
+
+      - name: Checkout NEXUS OS Repository
+        uses: actions/checkout@v4
+
+      - name: Compile Bootable NEXUS OS ISO inside Arch Linux Container
+        run: |
+          docker run --rm --privileged -v "${{ github.workspace }}:/workspace" archlinux:latest /bin/bash -c "
+            pacman -Syu --noconfirm archiso squashfs-tools &&
+            cd /workspace &&
+            chmod +x build-nexus-iso.sh verify-stage1.sh verify-all-stages.sh airootfs/root/customize_airootfs.sh airootfs/usr/local/bin/* &&
+            ./verify-all-stages.sh &&
+            ./build-nexus-iso.sh
+          "
+
+      - name: Upload Bootable ISO Artifact for Rufus / Ventoy
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-OS-Bootable-ISO
+          path: out/*.iso*
+          if-no-files-found: error
